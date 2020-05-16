@@ -14,7 +14,7 @@ import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.vertx.axle.core.shareddata.LocalMap;
+import io.vertx.core.shareddata.LocalMap;
 import io.vertx.core.json.Json;
 
 /*
@@ -30,7 +30,7 @@ public class TopicResponderLocationUpdateConsumer {
     private boolean log = true;
 
     @Inject
-    io.vertx.axle.core.Vertx vertx;
+    io.vertx.mutiny.core.Vertx vertx;
 
     @Inject
     @ConfigProperty(name = LOG_RESPONDER_LOCATION_UPDATE_COMSUMER, defaultValue = "False")
@@ -57,7 +57,7 @@ public class TopicResponderLocationUpdateConsumer {
             // Set pickup point in Mission Report.
             // The equivalent MissionCompletedEvent.steps (retrieved from MapBox) may not
             // correspond to actual steps in responderLocationHistory
-            LocalMap<String, MissionReport> mMap = vertx.sharedData().getLocalMap(Constants.MISSION_MAP);
+            LocalMap<String, MissionReport> mMap = vertx.getDelegate().sharedData().getLocalMap(Constants.MISSION_MAP);
             MissionReport mReport = mMap.get(rlObj.getMissionId());
             if(mReport != null) {
                 mReport.setPickupLat(rlObj.getLat());

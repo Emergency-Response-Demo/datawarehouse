@@ -15,7 +15,7 @@ import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.vertx.axle.core.shareddata.LocalMap;
+import io.vertx.core.shareddata.LocalMap;
 import io.vertx.core.json.Json;
 
 /*
@@ -31,7 +31,7 @@ public class TopicIncidentEventConsumer {
     private boolean log = true;
 
     @Inject
-    io.vertx.axle.core.Vertx vertx;
+    io.vertx.mutiny.core.Vertx vertx;
 
     @Inject
     @ConfigProperty(name = LOG_INCIDENT_EVENT_CONSUMER, defaultValue = "False")
@@ -61,19 +61,19 @@ public class TopicIncidentEventConsumer {
                 // If event = PICKEDUP, then update MissionReport with numberRescued
 
                 // Retrieve local cache of incidentId -> missionId mapper
-                LocalMap<String, String> imMap = vertx.sharedData().getLocalMap(Constants.INCIDENT_MISSION_MAP);
+                LocalMap<String, String> imMap = vertx.getDelegate().sharedData().getLocalMap(Constants.INCIDENT_MISSION_MAP);
                 String missionId = imMap.get(iObj.getId());
                 if(StringUtils.isEmpty(missionId))
                     throw new RuntimeException(Constants.NO_REPORT_FOUND_EXCEPTION+" : No MissionReport found for reportId = "+missionId);
 
                 // Retrive local cache of MissionReports
-                LocalMap<String, MissionReport> mMap = vertx.sharedData().getLocalMap(Constants.MISSION_MAP);
+                LocalMap<String, MissionReport> mMap = vertx.getDelegate().sharedData().getLocalMap(Constants.MISSION_MAP);
                 MissionReport mReport = mMap.get(missionId);
 
                 mReport.setNumberRescued(iObj.getNumberOfPeople());
 
                 // In addition, set MissionReport with previously determined processInstanceId
-                LocalMap<String, String> ipMap = vertx.sharedData()
+                LocalMap<String, String> ipMap = vertx.getDelegate().sharedData()
                         .getLocalMap(Constants.INCIDENT_PROCESS_INSTANCE_MAP);
                 String pInstanceId = ipMap.get(iObj.getId());
                 if (StringUtils.isNotEmpty(pInstanceId)) {

@@ -1,9 +1,8 @@
 package com.redhat.cajun.navy.datawarehouse.dao;
 
 import com.redhat.cajun.navy.datawarehouse.model.MissionReport;
-import io.vertx.axle.sqlclient.Row;
-import io.vertx.axle.sqlclient.RowSet;
-import java.util.concurrent.CompletionStage;
+
+import io.smallrye.mutiny.Uni;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.enterprise.context.ApplicationScoped;
@@ -29,7 +28,7 @@ public class ReportingReactiveDAO implements IReportingDAO {
     private static final String COMMA = ",";
 
     @Inject
-    io.vertx.axle.pgclient.PgPool pgClient;
+    io.vertx.mutiny.pgclient.PgPool pgClient;
 
     @Inject
     @ConfigProperty(name = QUARKUS_DATASOURCE_URL)
@@ -41,22 +40,18 @@ public class ReportingReactiveDAO implements IReportingDAO {
     }
 
     @Override
-    public CompletionStage<Integer> persistMissionReport(MissionReport missionReport) {
+    public Uni<Integer> persistMissionReport(MissionReport missionReport) {
 
-        return pgClient.query(createInsertMissionReportSQL(missionReport)).handleAsync((pgRowSet, ex) -> checkForException(pgRowSet, ex));
+        String insertString = createInsertMissionReportSQL(missionReport);
+        return pgClient.query(insertString)
+                        .onItem()
+                        .apply((pgRowSet) -> pgRowSet.rowCount());
     }
 
-    public CompletionStage<Integer> flushMissionReportTable() {
-        return pgClient.query("delete from MissionReport").handleAsync((pgRowSet, ex) -> checkForException(pgRowSet, ex));
-    }
-
-    private Integer checkForException(RowSet<Row> rowSet, Throwable x) {
-        if (x != null) {
-            logger.error("checkForException() Problem interacting with database at: " + datasourceURL);
-            throw new RuntimeException(x);
-        } else {
-            return rowSet.rowCount();
-        }
+    public Uni<Integer> flushMissionReportTable() {
+        return pgClient.query("delete from MissionReport")
+                        .onItem()
+                        .apply((pgRowSet) -> pgRowSet.rowCount());
     }
 
     private String createInsertMissionReportSQL(MissionReport mReport) {

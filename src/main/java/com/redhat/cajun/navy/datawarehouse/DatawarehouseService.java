@@ -7,9 +7,9 @@ import com.redhat.cajun.navy.datawarehouse.model.Responder;
 import com.redhat.cajun.navy.datawarehouse.util.Constants;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
-import io.vertx.axle.core.shareddata.LocalMap;
+import io.vertx.core.shareddata.LocalMap;
+
 import java.util.Set;
-import java.util.concurrent.CompletionStage;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
@@ -25,7 +25,7 @@ public class DatawarehouseService {
     private static final Logger logger = LoggerFactory.getLogger(DatawarehouseService.class);
 
     @Inject
-    io.vertx.axle.core.Vertx vertx;
+    io.vertx.mutiny.core.Vertx vertx;
 
     @Inject
     @RestClient
@@ -63,7 +63,7 @@ public class DatawarehouseService {
      */
     public int seedResponderMap() {
         Set<Responder> responders = respondersClient.available();
-        LocalMap<Integer, Responder> responderMap = vertx.sharedData().getLocalMap(Constants.RESPONSE_MAP);
+        LocalMap<Integer, Responder> responderMap = vertx.getDelegate().sharedData().getLocalMap(Constants.RESPONSE_MAP);
         logger.info("seedResponderMap() # of responders = " + responders.size() + "  : responderMap = " + responderMap);
 
         for (Responder rObj : responders) {
@@ -76,7 +76,7 @@ public class DatawarehouseService {
 
     public void processMissionStart(MissionReport mReport) {
         // Retrieve local cache of MissionReports
-        LocalMap<String, MissionReport> mMap = vertx.sharedData().getLocalMap(Constants.MISSION_MAP);
+        LocalMap<String, MissionReport> mMap = vertx.getDelegate().sharedData().getLocalMap(Constants.MISSION_MAP);
 
         // Add this MissionReport to local cache
         mMap.put(mReport.getId(), mReport);
@@ -90,13 +90,13 @@ public class DatawarehouseService {
          * missionId>. Later,will be able to retrieve missionId (using incidentId) and
          * process those incident events.
          */
-        LocalMap<String, String> imMap = vertx.sharedData().getLocalMap(Constants.INCIDENT_MISSION_MAP);
+        LocalMap<String, String> imMap = vertx.getDelegate().sharedData().getLocalMap(Constants.INCIDENT_MISSION_MAP);
         imMap.put(mReport.getIncidentId(), mReport.getId());
     }
 
     public void processMissionCompletion(MissionReport latestReport) {
 
-        LocalMap<String, MissionReport> mMap = vertx.sharedData().getLocalMap(Constants.MISSION_MAP);
+        LocalMap<String, MissionReport> mMap = vertx.getDelegate().sharedData().getLocalMap(Constants.MISSION_MAP);
         MissionReport mReport = mMap.get(latestReport.getId());
 
         // Check if local cache contains corresponding MissionReport
@@ -132,20 +132,21 @@ public class DatawarehouseService {
                  * Persist original MissionReport (updated with latest data and calculations) to
                  * the MissionReport datawarehouse.
                  */
-                CompletionStage<Integer> cStage = reportingDAO.persistMissionReport(mReport);
-                cStage.whenCompleteAsync((numPersisted, exception) -> {
-                    if (exception == null) {
-                        logger.info("processMissionCompletion() persistence result = " + numPersisted);
-                    } else {
-                        exception.printStackTrace();
-                    }
-                });
+                reportingDAO.persistMissionReport(mReport)
+                    .subscribe().with(
+                        onResultCallback -> logger.info("processMissionCompletion: number of MissionReports persisted to database: "+ onResultCallback),
+                        onFailureCallback -> onFailureCallback.printStackTrace()
+                    );
             }
 
     
             // Delete temp report from MissionReportMap
             mMap.remove(mReport.getId());
         }
+
+    }
+
+    private void handleUni(Integer x) {
 
     }
 
@@ -162,14 +163,15 @@ public class DatawarehouseService {
     }
 
     public void flushAllMissionReports() {
-        LocalMap<String, MissionReport> mMap = vertx.sharedData().getLocalMap(Constants.MISSION_MAP);
+        LocalMap<String, MissionReport> mMap = vertx.getDelegate().sharedData().getLocalMap(Constants.MISSION_MAP);
         logger.info("flushAllMissionReports:  about to flush the following number of missionReports from cache: "+mMap.size());
         mMap.clear();
 
-        CompletionStage<Integer> cStage = reportingDAO.flushMissionReportTable();
-        cStage.whenCompleteAsync((numFlushed, exception) -> {
-            logger.info("flushAllMissionReports: number of MissionReports flushed from database: "+ numFlushed);
-        });
+        reportingDAO.flushMissionReportTable()
+            .subscribe().with(
+                onResultCallback -> logger.info("flushAllMissionReports: number of MissionReports flushed from database: "+ onResultCallback),
+                onFailureCallback -> onFailureCallback.printStackTrace()
+            );
     }
 
     void onStop(@Observes ShutdownEvent ev) {

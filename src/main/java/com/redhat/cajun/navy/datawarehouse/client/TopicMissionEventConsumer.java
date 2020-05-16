@@ -1,7 +1,6 @@
 package com.redhat.cajun.navy.datawarehouse.client;
 
 import com.redhat.cajun.navy.datawarehouse.DatawarehouseService;
-import com.redhat.cajun.navy.datawarehouse.client.RespondersClient;
 import com.redhat.cajun.navy.datawarehouse.model.MissionReport;
 import com.redhat.cajun.navy.datawarehouse.model.cmd.mission.MissionCommand;
 import io.vertx.core.json.Json;
@@ -34,9 +33,6 @@ public class TopicMissionEventConsumer {
     @Inject
     @RestClient
     RespondersClient respondersClient;
-
-    @Inject
-    io.vertx.axle.core.Vertx vertx;
 
     @Inject
     @ConfigProperty(name = LOG_MISSION_EVENT_CONSUMER, defaultValue = "False")

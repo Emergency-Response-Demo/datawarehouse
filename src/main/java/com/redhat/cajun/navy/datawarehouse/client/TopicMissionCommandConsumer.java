@@ -15,7 +15,7 @@ import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.vertx.axle.core.shareddata.LocalMap;
+import io.vertx.core.shareddata.LocalMap;
 import io.vertx.core.json.Json;
 
 /*
@@ -32,7 +32,7 @@ public class TopicMissionCommandConsumer {
     private boolean log = true;
 
     @Inject
-    io.vertx.axle.core.Vertx vertx;
+    io.vertx.mutiny.core.Vertx vertx;
 
     @Inject
     @ConfigProperty(name = LOG_MISSION_COMMAND_COMSUMER, defaultValue = "False")
@@ -66,7 +66,7 @@ public class TopicMissionCommandConsumer {
                  */
 
                 // Retrieve local cache of incidentId -> missionId mapper
-                LocalMap<String, String> ipMap = vertx.sharedData()
+                LocalMap<String, String> ipMap = vertx.getDelegate().sharedData()
                         .getLocalMap(Constants.INCIDENT_PROCESS_INSTANCE_MAP);
                 ipMap.put(iObj.getIncidentId(), pInstanceId);
             } else {

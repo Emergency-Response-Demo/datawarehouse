@@ -94,12 +94,12 @@ less config/application.properties                                              
 
 mvn clean install -DskipTests \
     && mvn quarkus:build \
-    && java -jar target/datawarehouse-0.0.11-runner.jar                                         : build and start app
+    && java -jar target/datawarehouse-*.*.*-runner.jar                                          : build and start app
 
 mvn clean install -DskipTests \
     && mvn quarkus:build \
     && java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8484 \
-            -jar target/datawarehouse-0.0.11-runner.jar                                         : build and start app with debugger enabled
+            -jar target/datawarehouse-*.*.*-runner.jar                                          : build and start app with debugger enabled
                                                                                                 : https://developers.redhat.com/blog/2017/12/19/debug-java-openshift-vscode-cdk/
 -----
 

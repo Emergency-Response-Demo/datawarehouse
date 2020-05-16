@@ -52,18 +52,6 @@ public class MissionReportDAOTests {
         mReport.calculateDistancesAndTimes();
         Assertions.assertEquals(expectedPickupDistance, mReport.getResponderDistancePickup(), 0.0);
         Assertions.assertEquals(expectedDropoffDistance, mReport.getResponderDistanceDropoff(), 0.0);
-
-        CompletionStage<Integer> cStage = reportingDAO.persistMissionReport(mReport);
-        cStage.whenCompleteAsync(
-            (numPersisted, exception) -> {
-                if (exception == null) {
-                  logger.info("processMissionCompletion() persistence result = " +numPersisted);
-                  Assertions.assertEquals(1, numPersisted.intValue());
-                } else {
-                  exception.printStackTrace();
-                }
-            }
-        ).toCompletableFuture().get(); // Intentionally block so that test environment doesn't shutdown prior to completion of insert(s) into database.
     }
 
 }
