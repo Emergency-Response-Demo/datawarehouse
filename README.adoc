@@ -93,11 +93,9 @@ psql -h 127.0.01 -U naps -d datawarehouse -a -f ../sql-scripts/dw_database_ddl.s
 less config/application.properties                                                              # review / edit properties that over-ride props in src/main/resources/application.properties
 
 mvn clean install -DskipTests \
-    && mvn quarkus:build \
     && java -jar target/datawarehouse-*.*.*-runner.jar                                          : build and start app
 
 mvn clean install -DskipTests \
-    && mvn quarkus:build \
     && java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8484 \
             -jar target/datawarehouse-*.*.*-runner.jar                                          : build and start app with debugger enabled
                                                                                                 : https://developers.redhat.com/blog/2017/12/19/debug-java-openshift-vscode-cdk/
@@ -106,28 +104,28 @@ mvn clean install -DskipTests \
 . In terminal 3:
 +
 -----
-/opt/kafka_2.12-2.4.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092              # List existing topics
+/opt/agile_int/kafka_2.12-2.4.0/bin/kafka-topics.sh --list --bootstrap-server localhost:9092              # List existing topics
 
-/opt/kafka_2.12-2.4.0/bin/kafka-console-producer.sh \
+/opt/agile_int/kafka_2.12-2.4.0/bin/kafka-console-producer.sh \
     --broker-list localhost:9092 \
     --topic topic-mission-command < src/test/resources/CreateMissionCommand2.json               # Send a CreateMissionCommand event to a kafka topic
 
-/opt/kafka_2.12-2.4.0/bin/kafka-console-producer.sh \
+/opt/agile_int/kafka_2.12-2.4.0/bin/kafka-console-producer.sh \
     --broker-list localhost:9092 \
     --topic topic-mission-event < src/test/resources/MissionStartedEvent2.json                  # Send an MissionStarted event to a kafka topic
 
 
-/opt/kafka_2.12-2.4.0/bin/kafka-console-producer.sh \
+/opt/agile_int/kafka_2.12-2.4.0/bin/kafka-console-producer.sh \
     --broker-list localhost:9092 \
     --topic topic-responder-location-update \
     < src/test/resources/topicResponderLocationUpdate_PICKEDUP2.json                            # Send a ResponderLocationUpdate event to kafka topic
 
-/opt/kafka_2.12-2.4.0/bin/kafka-console-producer.sh \
+/opt/agile_int/kafka_2.12-2.4.0/bin/kafka-console-producer.sh \
     --broker-list localhost:9092 \
     --topic topic-incident-event \
     < src/test/resources/TopicIncidentEventPickedup2.json                                       # Send an IncidentUpdateEvent to kafka topic
 
-/opt/kafka_2.12-2.4.0/bin/kafka-console-producer.sh \
+/opt/agile_int/kafka_2.12-2.4.0/bin/kafka-console-producer.sh \
     --broker-list localhost:9092 \
     --topic topic-mission-event < src/test/resources/MissionCompletedEvent2.json                # Send an MissionCompleted event to a kafka topic
 -----

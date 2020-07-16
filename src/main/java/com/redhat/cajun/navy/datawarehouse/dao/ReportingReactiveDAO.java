@@ -44,12 +44,14 @@ public class ReportingReactiveDAO implements IReportingDAO {
 
         String insertString = createInsertMissionReportSQL(missionReport);
         return pgClient.query(insertString)
+                        .execute()
                         .onItem()
                         .apply((pgRowSet) -> pgRowSet.rowCount());
     }
 
     public Uni<Integer> flushMissionReportTable() {
         return pgClient.query("delete from MissionReport")
+                        .execute()
                         .onItem()
                         .apply((pgRowSet) -> pgRowSet.rowCount());
     }
