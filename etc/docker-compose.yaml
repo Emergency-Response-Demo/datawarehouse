@@ -30,10 +30,11 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
 
   dbpostgresql:
-    image: postgres:10.5
+    image: registry.redhat.io/rhel8/postgresql-12
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_PASSWORD=naps
-      - POSTGRES_USER=naps
-      - POSTGRES_DB=datawarehouse
+      - POSTGRESQL_USER=naps
+      - POSTGRESQL_PASSWORD=naps
+      - POSTGRESQL_DATABASE=datawarehouse
+      - POSTGRESQL_MAX_PREPARED_TRANSACTIONS=10

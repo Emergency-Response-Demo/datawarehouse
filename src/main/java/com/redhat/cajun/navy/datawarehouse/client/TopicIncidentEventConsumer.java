@@ -27,7 +27,7 @@ import io.vertx.core.json.Json;
 public class TopicIncidentEventConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger("TopicIncidentEventConsumer");
-    private static final String LOG_INCIDENT_EVENT_CONSUMER = "er.dmo.LOG_INCIDENT_EVENT_COMSUMER";
+    private static final String LOG_INCIDENT_EVENT_CONSUMER = "er.demo.LOG_INCIDENT_EVENT_COMSUMER";
     private boolean log = true;
 
     @Inject

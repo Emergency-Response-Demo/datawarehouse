@@ -15,6 +15,7 @@ import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ import org.slf4j.LoggerFactory;
 public class DatawarehouseService {
 
     private static final Logger logger = LoggerFactory.getLogger(DatawarehouseService.class);
+    private static final String BUBBLE_UP_EXCEPTIONS = "er.demo.BUBBLE_UP_EXCEPTIONS";
 
     @Inject
     io.vertx.mutiny.core.Vertx vertx;
@@ -33,6 +35,10 @@ public class DatawarehouseService {
 
     @Inject
     IReportingDAO reportingDAO;
+
+    @Inject
+    @ConfigProperty(name = BUBBLE_UP_EXCEPTIONS, defaultValue = "True")
+    String bubbleUpExceptions;
 
     void onStart(@Observes StartupEvent ev) {
 
@@ -62,15 +68,25 @@ public class DatawarehouseService {
      * corresponding Responder
      */
     public int seedResponderMap() {
-        Set<Responder> responders = respondersClient.available();
-        LocalMap<Integer, Responder> responderMap = vertx.getDelegate().sharedData().getLocalMap(Constants.RESPONSE_MAP);
-        logger.info("seedResponderMap() # of responders = " + responders.size() + "  : responderMap = " + responderMap);
+        Set<Responder> responders = null;
+        int rCount = 0;
+        try {
+            responders = respondersClient.available();
+            LocalMap<Integer, Responder> responderMap = vertx.getDelegate().sharedData().getLocalMap(Constants.RESPONSE_MAP);
+            logger.info("seedResponderMap() # of responders = " + responders.size() + "  : responderMap = " + responderMap);
 
-        for (Responder rObj : responders) {
-            Integer id = rObj.getId();
-            responderMap.put(id, rObj);
+            for (Responder rObj : responders) {
+                Integer id = rObj.getId();
+                responderMap.put(id, rObj);
+            }
+            rCount = responders.size();
+        }catch(javax.ws.rs.ProcessingException x) {
+            if(Boolean.parseBoolean(bubbleUpExceptions)) {
+                throw x;
+            }else {
+                x.printStackTrace();
+            }
         }
-        int rCount = responders.size();
         return rCount;
     }
 
