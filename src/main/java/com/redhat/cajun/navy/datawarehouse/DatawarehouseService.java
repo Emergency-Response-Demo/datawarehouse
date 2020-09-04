@@ -7,7 +7,6 @@ import com.redhat.cajun.navy.datawarehouse.model.Responder;
 import com.redhat.cajun.navy.datawarehouse.util.Constants;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
-import io.vertx.core.shareddata.LocalMap;
 
 import java.util.Set;
 import javax.enterprise.context.ApplicationScoped;
@@ -15,9 +14,11 @@ import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import javax.annotation.Priority;
 
-import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.infinispan.client.hotrod.RemoteCache;
+import org.infinispan.client.hotrod.RemoteCacheManager;
+import org.infinispan.commons.configuration.XMLStringConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,10 +26,37 @@ import org.slf4j.LoggerFactory;
 public class DatawarehouseService {
 
     private static final Logger logger = LoggerFactory.getLogger(DatawarehouseService.class);
-    private static final String BUBBLE_UP_EXCEPTIONS = "er.demo.BUBBLE_UP_EXCEPTIONS";
+    private static final String DELETE_REMOTE_CACHE_ON_STARTUP =  "er.demo.DELETE_REMOTE_CACHE_ON_STARTUP";
 
-    @Inject
-    io.vertx.mutiny.core.Vertx vertx;
+    private static final String RESPONDER_CACHE_CONFIG =
+    "<infinispan><cache-container>" +
+            "<distributed-cache name=\"%s\"></distributed-cache>" +
+            "</cache-container></infinispan>";
+
+    /*  This infinispan cache is configured to prevent write-skews (as documented in here:  https://red.ht/2Zf5A7j)
+     *  write-skews can occur during the pick-up event when consumption of the following two messages occurs:
+     *    1) topic-incident-event              :   IncidentUpdatedEvent (produced by incident-service) with number of people actually picked up
+     *    2) topic-responder-location-update   :   Consumes a location-update message (with status of PICKEDUP and lat/lon of pickup location)
+     */
+    /*
+     * Optimistic locking only locks keys during the transaction commit
+     * It throws a WriteSkewCheckException at commit time, if another transaction modified the same keys after the current transaction read them   
+    */
+    private static final String MISSION_CACHE_CONFIG_OPTIMISTIC =
+            "<infinispan><cache-container><distributed-cache name=\"%s\">" +
+                    "<locking isolation=\"READ_COMMITTED\"/>" +
+                    "<transaction locking=\"OPTIMISTIC\" mode=\"NONE\" auto-commit=\"true\" " +
+                    "transaction-manager-lookup=\"org.infinispan.transaction.lookup.GenericTransactionManagerLookup\" />"+
+            "</distributed-cache></cache-container></infinispan>";
+
+    /* Pessimistic locking locks keys on a write operation or when the user calls AdvancedCache.lock(keys) explicitly.  */
+    private static final String MISSION_CACHE_CONFIG_PESSIMISTIC =
+    "<infinispan><cache-container><distributed-cache name=\"%s\">" +
+            "<locking isolation=\"REPEATABLE_READ\"/>" +
+            "<transaction locking=\"PESSIMISTIC\" mode=\"NON_XA\" auto-commit=\"false\" " +
+            "transaction-manager-lookup=\"org.infinispan.transaction.lookup.GenericTransactionManagerLookup\" />"+
+    "</distributed-cache></cache-container></infinispan>";
+
 
     @Inject
     @RestClient
@@ -38,8 +66,11 @@ public class DatawarehouseService {
     IReportingDAO reportingDAO;
 
     @Inject
-    @ConfigProperty(name = BUBBLE_UP_EXCEPTIONS, defaultValue = "True")
-    String bubbleUpExceptions;
+    RemoteCacheManager cacheManager;
+
+    @Inject
+    @ConfigProperty(name = DELETE_REMOTE_CACHE_ON_STARTUP, defaultValue = "False")
+    boolean deleteRemoteCacheOnStartup = false;
 
     void onStart(@Observes @Priority(value = 1) StartupEvent ev) {
 
@@ -58,131 +89,60 @@ public class DatawarehouseService {
         System.out.println("                                                        ");
         System.out.println("                                    Powered by Red Hat  ");
 
-        int numRespondersSeeded = seedResponderMap();
-        logger.info("onStart() # of responders pulled from responder service = " + numRespondersSeeded);
+    
+        /* ************         Infinispan Server Side Configurations          *************** */
+        /*
+        if(deleteRemoteCacheOnStartup) {
+            if(cacheManager.getCache(Constants.RESPONDER_MAP) != null)
+                cacheManager.administration().removeCache(Constants.RESPONDER_MAP);
+            logger.info("Justed deleted the following cache: "+Constants.RESPONDER_MAP);
 
+            if(cacheManager.getCache(Constants.INCIDENT_MAP) != null)
+                cacheManager.administration().removeCache(Constants.INCIDENT_MAP);
+            logger.info("Justed deleted the following cache: "+Constants.INCIDENT_MAP);
+        }
+        String missionMapXml = String.format(MISSION_CACHE_CONFIG_PESSIMISTIC, Constants.INCIDENT_MAP);
+        RemoteCache<String, MissionReport> mMap = cacheManager.administration().getOrCreateCache(Constants.INCIDENT_MAP, new XMLStringConfiguration(missionMapXml));
+
+        String xml = String.format(RESPONDER_CACHE_CONFIG, Constants.RESPONDER_MAP);
+        RemoteCache<Integer, Responder> responderMap = cacheManager.administration().getOrCreateCache(Constants.RESPONDER_MAP, new XMLStringConfiguration(xml));
+        */
+
+        /* ***************************************************************** */
+
+
+        // Seed responder cache
+        RemoteCache<Integer, Responder> responderMap = cacheManager.getCache(Constants.RESPONDER_MAP);
+        int numRespondersSeeded = seedResponderMap(responderMap);
+
+        StringBuilder sBuilder = new StringBuilder("onStart() cache names = ");
+        Set<String> cacheNames = cacheManager.getCacheNames();
+        for(String cacheName : cacheNames) {
+            sBuilder.append("\n\t"+cacheName);
+        }
+
+        sBuilder.append("\n\nonStart() # of responders pulled from responder service = " + numRespondersSeeded +"\n\tresponderMap = "+responderMap);
+        logger.info(sBuilder.toString());
     }
 
     /*
-     * Datawarehouse should include Responder details At start-up populate a local
-     * cache of Responders. Upon persistence of MissionReport, include details of
-     * corresponding Responder
+     * Datawarehouse should include Responder details at start-up 
+     * Therefore, populate a local cache of Responders
+     * Upon persistence of MissionReport, include details of corresponding Responder
      */
-    public int seedResponderMap() {
+    public int seedResponderMap(RemoteCache<Integer, Responder> responderMap) {
         Set<Responder> responders = null;
         int rCount = 0;
-        try {
-            responders = respondersClient.available();
-            LocalMap<Integer, Responder> responderMap = vertx.getDelegate().sharedData().getLocalMap(Constants.RESPONSE_MAP);
-            logger.info("seedResponderMap() # of responders = " + responders.size() + "  : responderMap = " + responderMap);
-
-            for (Responder rObj : responders) {
-                Integer id = rObj.getId();
-                responderMap.put(id, rObj);
-            }
-            rCount = responders.size();
-        }catch(javax.ws.rs.ProcessingException x) {
-            if(Boolean.parseBoolean(bubbleUpExceptions)) {
-                throw x;
-            }else {
-                x.printStackTrace();
-            }
+        responders = respondersClient.available();
+        for (Responder rObj : responders) {
+            Integer id = rObj.getId();
+            responderMap.put(id, rObj);
         }
+        rCount = responders.size();
         return rCount;
     }
 
-    public void processMissionStart(MissionReport mReport) {
-        // Retrieve local cache of MissionReports
-        LocalMap<String, MissionReport> mMap = vertx.getDelegate().sharedData().getLocalMap(Constants.MISSION_MAP);
-
-        // Add this MissionReport to local cache
-        mMap.put(mReport.getId(), mReport);
-
-        // Update MissionReport with responder info details
-        populateMissionReportWithResponderInfo(mReport);
-
-        /*
-         * Some ER-Demo events provide incidentId as the unique identifer and do not
-         * contain missionId. Populate local INCIDENT_MISSION_MAP<incidentId,
-         * missionId>. Later,will be able to retrieve missionId (using incidentId) and
-         * process those incident events.
-         */
-        LocalMap<String, String> imMap = vertx.getDelegate().sharedData().getLocalMap(Constants.INCIDENT_MISSION_MAP);
-        imMap.put(mReport.getIncidentId(), mReport.getId());
-    }
-
-    public void processMissionCompletion(MissionReport latestReport) {
-
-        LocalMap<String, MissionReport> mMap = vertx.getDelegate().sharedData().getLocalMap(Constants.MISSION_MAP);
-        MissionReport mReport = mMap.get(latestReport.getId());
-
-        // Check if local cache contains corresponding MissionReport
-        if (mReport == null) {
-            logger.error(Constants.NO_REPORT_FOUND_EXCEPTION + " : " + latestReport.getId()
-                    + " : No report found in local cache.  Will not persist because there would be fields missing in the report");
-        } else {
-            if(StringUtils.isEmpty(mReport.getProcessInstanceId())) {
-                logger.error(Constants.NO_PROCESS_INSTANCE_ID_EXCEPTION
-                        + "  :  Will not persist. No pInstanceId found for CreateMissionCommand with incidentId = "
-                        + latestReport.getId());
-            }else {
-
-                /*
-                 * Original MissionReport from MissionStartedEvent has empty
-                 * ResponderLocationHistory. Add ResponderLocationHistory from this
-                 * MissionCompletedEvent to original MissionReport.
-                 */
-                mReport.setResponderLocationHistory(latestReport.getResponderLocationHistory());
-    
-                /*
-                 * Based on ResponderLocationHistory, calculate distance travelled and
-                 * durations.
-                 */
-                mReport.calculateDistancesAndTimes();
-    
-                /*
-                 * Change status of original report
-                 */
-                mReport.setStatus(latestReport.getStatus());
-    
-                /*
-                 * Persist original MissionReport (updated with latest data and calculations) to
-                 * the MissionReport datawarehouse.
-                 */
-                reportingDAO.persistMissionReport(mReport)
-                    .subscribe().with(
-                        onResultCallback -> logger.info("processMissionCompletion: number of MissionReports persisted to database: "+ onResultCallback),
-                        onFailureCallback -> onFailureCallback.printStackTrace()
-                    );
-            }
-
-    
-            // Delete temp report from MissionReportMap
-            mMap.remove(mReport.getId());
-        }
-
-    }
-
-    private void handleUni(Integer x) {
-
-    }
-
-    private void populateMissionReportWithResponderInfo(MissionReport mReport) {
-        Integer id = Integer.parseInt(mReport.getResponderId());
-        Responder rObj = (Responder) vertx.sharedData().getLocalMap(Constants.RESPONSE_MAP).get(id);
-        if (rObj == null) {
-            logger.warn("populateMissionReportWithResponderInfo() Did not originally find responder; Id = " + id);
-            rObj = respondersClient.getById(id);
-            vertx.sharedData().getLocalMap(Constants.RESPONSE_MAP).put(id, rObj);
-        }
-        mReport.setResponderFullName(rObj.getName());
-        mReport.setResponderHasMedicalKit(rObj.getMedicalKit());
-    }
-
-    public void flushAllMissionReports() {
-        LocalMap<String, MissionReport> mMap = vertx.getDelegate().sharedData().getLocalMap(Constants.MISSION_MAP);
-        logger.info("flushAllMissionReports:  about to flush the following number of missionReports from cache: "+mMap.size());
-        mMap.clear();
+    public void flushAllMissionReportsFromDB() {
 
         reportingDAO.flushMissionReportTable()
             .subscribe().with(
@@ -193,6 +153,7 @@ public class DatawarehouseService {
 
     void onStop(@Observes ShutdownEvent ev) {
         logger.info("onStop() stopping...");
+        cacheManager.close();
     }
 
 }

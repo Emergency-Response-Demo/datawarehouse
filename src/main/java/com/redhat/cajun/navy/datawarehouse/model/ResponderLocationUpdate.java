@@ -14,7 +14,7 @@ public class ResponderLocationUpdate {
 
     private String responderId;
     private String missionId;
-    private String incidientId;
+    private String incidentId;
     private String status;
 
     @JsonSerialize(using = DoubleContextualSerializer.class)
@@ -42,12 +42,12 @@ public class ResponderLocationUpdate {
         this.missionId = missionId;
     }
 
-    public String getIncidientId() {
-        return incidientId;
+    public String getIncidentId() {
+        return incidentId;
     }
 
-    public void setIncidientId(String incidientId) {
-        this.incidientId = incidientId;
+    public void setIncidientId(String incidentId) {
+        this.incidentId = incidentId;
     }
 
     public String getStatus() {

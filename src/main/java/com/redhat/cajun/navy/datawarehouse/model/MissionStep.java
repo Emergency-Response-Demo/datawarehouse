@@ -5,6 +5,10 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.mapbox.geojson.Point;
 import com.redhat.cajun.navy.datawarehouse.util.DoubleContextualSerializer;
 import com.redhat.cajun.navy.datawarehouse.util.Precision;
+
+import org.infinispan.protostream.annotations.ProtoFactory;
+import org.infinispan.protostream.annotations.ProtoField;
+
 import io.vertx.core.json.Json;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -19,11 +23,13 @@ public class MissionStep {
     private double lon;
 
     private boolean isWayPoint = false;
+
     private boolean isDestination = false;
 
     public MissionStep() {
     }
 
+    @ProtoField(number = 1, defaultValue="0.0")
     public double getLat() {
         return lat;
     }
@@ -32,6 +38,7 @@ public class MissionStep {
         this.lat = input;
     }
 
+    @ProtoField(number = 2, defaultValue="0.0")
     public double getLon() {
         return lon;
     }
@@ -40,15 +47,17 @@ public class MissionStep {
         this.lon = input;
     }
 
-    public boolean isWayPoint() {
+    @ProtoField(number = 3, defaultValue="false")
+    public boolean getIsWayPoint() {
         return isWayPoint;
     }
 
-    public void setWayPoint(boolean wayPoint) {
+    public void setIsWayPoint(boolean wayPoint) {
         isWayPoint = wayPoint;
     }
 
-    public boolean isDestination() {
+    @ProtoField(number = 4, defaultValue="false")
+    public boolean getIsDestination() {
         return isDestination;
     }
 
@@ -81,4 +90,12 @@ public class MissionStep {
     public String toString() {
         return toJson();
     }
+
+    @ProtoFactory
+	public MissionStep(double lat, double lon, boolean isWayPoint, boolean isDestination) {
+		this.lat = lat;
+		this.lon = lon;
+		this.isWayPoint = isWayPoint;
+		this.isDestination = isDestination;
+	}
 }

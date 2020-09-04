@@ -2,10 +2,14 @@ package com.redhat.cajun.navy.datawarehouse.dao;
 
 import com.redhat.cajun.navy.datawarehouse.model.MissionReport;
 
+import io.quarkus.runtime.ShutdownEvent;
+import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Uni;
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
+import io.vertx.mutiny.sqlclient.SqlConnection;
+
+import javax.annotation.Priority;
 import javax.enterprise.context.ApplicationScoped;
+import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
@@ -34,9 +38,10 @@ public class ReportingReactiveDAO implements IReportingDAO {
     @ConfigProperty(name = QUARKUS_DATASOURCE_URL)
     String datasourceURL;
 
-    @PostConstruct
-    public void start() {
+    
+    public void onStart(@Observes @Priority(value = 1) StartupEvent ev) {
         logger.info("start() reactive pg client = " + pgClient + " : datasourceUrl = " + datasourceURL);
+        pgClient.query("select 1").execute().onItem().transform(rSet -> rSet.rowCount());
     }
 
     @Override
@@ -46,14 +51,14 @@ public class ReportingReactiveDAO implements IReportingDAO {
         return pgClient.query(insertString)
                         .execute()
                         .onItem()
-                        .apply((pgRowSet) -> pgRowSet.rowCount());
+                        .transform((pgRowSet) -> pgRowSet.rowCount());
     }
 
     public Uni<Integer> flushMissionReportTable() {
         return pgClient.query("delete from MissionReport")
                         .execute()
                         .onItem()
-                        .apply((pgRowSet) -> pgRowSet.rowCount());
+                        .transform((pgRowSet) -> pgRowSet.rowCount());
     }
 
     private String createInsertMissionReportSQL(MissionReport mReport) {
@@ -76,9 +81,10 @@ public class ReportingReactiveDAO implements IReportingDAO {
         return sBuilder.toString();
     }
 
-    @PreDestroy
-    public void end() {
+
+    void onStop(@Observes ShutdownEvent ev) {
         logger.info("end()");
+        pgClient.close();
     }
 
 }

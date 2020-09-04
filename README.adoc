@@ -4,10 +4,15 @@
 
 == Overview
 Purpose of this component of the ER-Demo is populate a relational PostgreSQL database (with a de-normalized schema) that serves as a datawarehouse.
-This datawarehouse is then exposed via a GrafanaDashboards.
+This datawarehouse is then exposed via a GrafanaDashboards
 
-This component listens on various AMQ Streams topics to consume its messages and persist to the de-normalized database.
 This component is written using Quarkus.
+This component listens on the following AMQ Streams topics in order:
+
+. topic-mission-command             :   Initial command (with processInstanceId) from process-service to create a mission
+. topic-incident-event              :   IncidentUpdatedEvent (produced by incident-service) with number of people actually picked up
+. topic-responder-location-update   :   Consumes a location-update message (with status of PICKEDUP and lat/lon of pickup location) 
+. topic-mission-event               :   Mission Completed message from mission-service
 
 
 == Development
@@ -99,6 +104,8 @@ mvn clean install -DskipTests \
     && java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8484 \
             -jar target/datawarehouse-*.*.*-runner.jar                                          : build and start app with debugger enabled
                                                                                                 : https://developers.redhat.com/blog/2017/12/19/debug-java-openshift-vscode-cdk/
+
+java -jar target/datawarehouse-*.*.*-runner.jar > /tmp/dw.log 2>&1 &
 -----
 
 . In terminal 3:

@@ -1,104 +1,147 @@
 package com.redhat.cajun.navy.datawarehouse.model;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.redhat.cajun.navy.datawarehouse.util.CalculationException;
 import com.redhat.cajun.navy.datawarehouse.util.DoubleContextualSerializer;
 import com.redhat.cajun.navy.datawarehouse.util.Precision;
+
+import org.infinispan.protostream.annotations.ProtoFactory;
+import org.infinispan.protostream.annotations.ProtoField;
+
 import io.vertx.core.json.Json;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class MissionReport implements io.vertx.core.shareddata.Shareable {
 
-    // From MissionStartedEvent
-    private String id;
+    @ProtoField(number = 1)
+    public String id;
 
-    // From Mission Events
-    private String status;
+    @ProtoField(number = 2)
+    public String status;
 
-    // From MissionCompletedEvent
-    private String incidentId;
+    @ProtoField(number = 3)
+    public String incidentId;
 
-    // From MissionCompletedEvent
-    private String responderId;
+    @ProtoField(number = 4)
+    public String responderId;
 
-    // Retrieve from local Responders data structure;
-    // if doesn't exist then invoke Responders service
-    private String responderFullName;
-    private boolean responderHasMedicalKit;
+    @ProtoField(number = 5)
+    public String responderFullName;
 
-    // Add this in MissionCompleted Event ????
-    private int numberRescued;
+    @ProtoField(number = 6, defaultValue="false")
+    public boolean responderHasMedicalKit = false;
 
-    // Calculate from either responderLocationHistory in MissionCompletedEvent
-    // Determine how to identify pickup point
-    private double responderDistancePickup;
-    private double responderDistanceDropoff;
-    private double responderDistanceTotal;
+    @ProtoField(number = 7, defaultValue="0")
+    public int numberRescued;
 
-    // Calculate from responderLocationHistory
-    // Determine how to identify pickup point
-    private long responseTimeSecondsPickup;
-    private long responseTimeSecondsDropoff;
-    private long responseTimeSecondsTotal;
+    @ProtoField(number = 8, defaultValue="0.0")
+    public double responderDistancePickup;
 
-    private String processInstanceId;
+    @ProtoField(number = 9, defaultValue="0.0")
+    public double responderDistanceDropoff;
 
-    @JsonSerialize(using = DoubleContextualSerializer.class)
-    @Precision(precision = 4)
-    private double pickupLat = 0.0;
+    @ProtoField(number = 10, defaultValue="0.0")
+    public double responderDistanceTotal;
 
-    @JsonSerialize(using = DoubleContextualSerializer.class)
-    @Precision(precision = 4)
-    private double pickupLong = 0.0;
+    @ProtoField(number = 11, defaultValue="0")
+    public long responseTimeSecondsPickup;
 
-    @JsonSerialize(using = DoubleContextualSerializer.class)
-    @Precision(precision = 4)
-    private double responderStartLat;
+    @ProtoField(number = 12, defaultValue="0")
+    public long responseTimeSecondsDropoff;
+
+    @ProtoField(number = 13, defaultValue="0")
+    public long responseTimeSecondsTotal;
+
+    @ProtoField(number = 14)
+    public String processInstanceId;
 
     @JsonSerialize(using = DoubleContextualSerializer.class)
     @Precision(precision = 4)
-    private double responderStartLong;
+    @ProtoField(number = 15, defaultValue="0.0")
+    public double pickupLat = 0.0;
 
     @JsonSerialize(using = DoubleContextualSerializer.class)
     @Precision(precision = 4)
-    private double incidentLat;
+    @ProtoField(number = 16, defaultValue="0.0")
+    public double pickupLong = 0.0;
 
     @JsonSerialize(using = DoubleContextualSerializer.class)
     @Precision(precision = 4)
-    private double incidentLong;
+    @ProtoField(number = 17, defaultValue="0.0")
+    public double responderStartLat;
 
     @JsonSerialize(using = DoubleContextualSerializer.class)
     @Precision(precision = 4)
-    private double destinationLat;
+    @ProtoField(number = 18, defaultValue="0.0")
+    public double responderStartLong;
 
     @JsonSerialize(using = DoubleContextualSerializer.class)
     @Precision(precision = 4)
-    private double destinationLong;
+    @ProtoField(number = 19, defaultValue="0.0")
+    public double incidentLat;
 
-    private List<ResponderLocationHistory> responderLocationHistory;
+    @JsonSerialize(using = DoubleContextualSerializer.class)
+    @Precision(precision = 4)
+    @ProtoField(number = 20, defaultValue="0.0")
+    public double incidentLong;
 
-    private List<MissionStep> steps = null;
+    @JsonSerialize(using = DoubleContextualSerializer.class)
+    @Precision(precision = 4)
+    @ProtoField(number = 21, defaultValue="0.0")
+    public double destinationLat;
+
+    @JsonSerialize(using = DoubleContextualSerializer.class)
+    @Precision(precision = 4)
+    @ProtoField(number = 22, defaultValue="0.0")
+    public double destinationLong;
+
+    @ProtoField(number = 23, collectionImplementation = ArrayList.class)
+    public List<ResponderLocationHistory> responderLocationHistory;
+
+    @ProtoField(number = 24, collectionImplementation = ArrayList.class)
+    public List<MissionStep> steps = null;
 
     public MissionReport() {
     }
 
-    public void setSteps(List<MissionStep> steps) {
-        this.steps = steps;
-    }
-
-    public void addMissionStep(MissionStep step) {
-        if (this.steps != null && step != null) {
-            steps.add(step);
-        } else
-            throw new IllegalArgumentException("Null value not acceptable");
-    }
-
-    public List<MissionStep> getSteps() {
-        return steps;
+    @ProtoFactory
+	public MissionReport(String id, String status, String incidentId, String responderId, String responderFullName,
+			boolean responderHasMedicalKit, int numberRescued, double responderDistancePickup,
+			double responderDistanceDropoff, double responderDistanceTotal, long responseTimeSecondsPickup,
+			long responseTimeSecondsDropoff, long responseTimeSecondsTotal, String processInstanceId, double pickupLat,
+			double pickupLong, double responderStartLat, double responderStartLong, double incidentLat,
+			double incidentLong, double destinationLat, double destinationLong,
+			List<ResponderLocationHistory> responderLocationHistory, List<MissionStep> steps) {
+		this.id = id;
+		this.status = status;
+		this.incidentId = incidentId;
+		this.responderId = responderId;
+		this.responderFullName = responderFullName;
+		this.responderHasMedicalKit = responderHasMedicalKit;
+		this.numberRescued = numberRescued;
+		this.responderDistancePickup = responderDistancePickup;
+		this.responderDistanceDropoff = responderDistanceDropoff;
+		this.responderDistanceTotal = responderDistanceTotal;
+		this.responseTimeSecondsPickup = responseTimeSecondsPickup;
+		this.responseTimeSecondsDropoff = responseTimeSecondsDropoff;
+		this.responseTimeSecondsTotal = responseTimeSecondsTotal;
+		this.processInstanceId = processInstanceId;
+		this.pickupLat = pickupLat;
+		this.pickupLong = pickupLong;
+		this.responderStartLat = responderStartLat;
+		this.responderStartLong = responderStartLong;
+		this.incidentLat = incidentLat;
+		this.incidentLong = incidentLong;
+		this.destinationLat = destinationLat;
+		this.destinationLong = destinationLong;
+		this.responderLocationHistory = responderLocationHistory;
+		this.steps = steps;
     }
 
     public String getId() {
@@ -173,6 +216,7 @@ public class MissionReport implements io.vertx.core.shareddata.Shareable {
         this.destinationLong = input;
     }
 
+    
     public List<ResponderLocationHistory> getResponderLocationHistory() {
         return responderLocationHistory;
     }
@@ -194,35 +238,6 @@ public class MissionReport implements io.vertx.core.shareddata.Shareable {
 
     public void setStatus(String input) {
         this.status = input;
-    }
-
-    public String toJson() {
-        return Json.encode(this);
-    }
-
-    @Override
-    public String toString() {
-        return toJson();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o)
-            return true;
-        if (o == null || getClass() != o.getClass())
-            return false;
-        MissionReport mission = (MissionReport) o;
-        return Objects.equals(responderId, mission.responderId) && Objects.equals(incidentId, mission.incidentId);
-    }
-
-    @JsonIgnore
-    public String getKey() {
-        return this.incidentId + this.responderId;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(responderId + incidentId);
     }
 
     public String getResponderFullName() {
@@ -321,10 +336,24 @@ public class MissionReport implements io.vertx.core.shareddata.Shareable {
         this.processInstanceId = processInstanceId;
     }
 
-    public void calculateDistancesAndTimes() {
+    public void setSteps(List<MissionStep> steps) {
+        this.steps = steps;
+    }
+
+    public void addMissionStep(MissionStep step) {
+        if (this.steps != null && step != null) {
+            steps.add(step);
+        } else
+            throw new IllegalArgumentException("Null value not acceptable");
+    }
+
+    public List<MissionStep> getSteps() {
+        return steps;
+    }
+
+    public void calculateDistancesAndTimes() throws CalculationException {
         if (pickupLat == 0.0) {
-            // No mechanism to reliably differentiate between pickup and drop-off
-            return;
+            throw new CalculationException(this.incidentId+" : Cant calculate; pickupLat == 0.0");
         }
 
         ResponderLocationHistory rLocH0 = null;
@@ -350,6 +379,12 @@ public class MissionReport implements io.vertx.core.shareddata.Shareable {
             rLocH0 = rLocH1;
         }
 
+        if(!pickedup) {
+            StringBuilder sBuilder = new StringBuilder(this.incidentId+" : pickup location doesn't match history : "+pickupLat+" : "+pickupLong+"\n");
+            sBuilder.append(dumpResponderHistoryList());
+            throw new CalculationException(sBuilder.toString());
+        }
+
         this.responderDistanceTotal = this.responderDistancePickup + this.responderDistanceDropoff;
         this.responseTimeSecondsTotal = this.responseTimeSecondsPickup + this.responseTimeSecondsDropoff;
 
@@ -369,6 +404,48 @@ public class MissionReport implements io.vertx.core.shareddata.Shareable {
             dist = dist * 1.609344 * 1000; // meters
             return (dist);
         }
+    }
+
+    public String toJson() {
+        return Json.encode(this);
+    }
+
+    @Override
+    public String toString() {
+        return toJson();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        MissionReport mission = (MissionReport) o;
+        return Objects.equals(responderId, mission.responderId) && Objects.equals(incidentId, mission.incidentId);
+    }
+
+    @JsonIgnore
+    public String getKey() {
+        return this.incidentId + this.responderId;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(responderId + incidentId);
+    }
+
+    public String dumpResponderHistoryList() {
+        StringBuilder sBuilder = new StringBuilder();
+        int x = 0;
+        for(ResponderLocationHistory rlh : this.responderLocationHistory){
+            if(x != 0)
+                sBuilder.append(" , ");
+
+            sBuilder.append(rlh.toString());
+            x++;
+        }
+        return sBuilder.toString();
     }
 
 }

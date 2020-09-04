@@ -1,6 +1,6 @@
 package com.redhat.cajun.navy.datawarehouse.client;
 
-import com.redhat.cajun.navy.datawarehouse.DatawarehouseService;
+import com.redhat.cajun.navy.datawarehouse.MessageProcessingService;
 import com.redhat.cajun.navy.datawarehouse.model.MissionReport;
 import com.redhat.cajun.navy.datawarehouse.model.cmd.mission.MissionCommand;
 import io.vertx.core.json.Json;
@@ -10,17 +10,15 @@ import javax.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
 import io.smallrye.reactive.messaging.annotations.Blocking;
 import org.eclipse.microprofile.reactive.messaging.Acknowledgment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/*
- *  Consumes the following messages from "topic-mission-event" kafka topic:
- *    1)  MissionCompletedEvent   from MissionService
- *    2)  MissionStartedEvent     from MissionService
- *    3)  MissionPickedUpEvent    from MissionService
+/*  Purpose:
+ *     Consume MissionCompletedEvent which contains list of responderLocationHistory (each with timestamps)
+ *     This message is produced by mission service
+ * 
  */
 @ApplicationScoped
 public class TopicMissionEventConsumer {
@@ -30,11 +28,7 @@ public class TopicMissionEventConsumer {
     private boolean log = false;
 
     @Inject
-    DatawarehouseService dwhService;
-
-    @Inject
-    @RestClient
-    RespondersClient respondersClient;
+    MessageProcessingService mService;
 
     @Inject
     @ConfigProperty(name = LOG_MISSION_EVENT_CONSUMER, defaultValue = "False")
@@ -61,21 +55,21 @@ public class TopicMissionEventConsumer {
         String messageType = mcObj.getMessageType();
 
 
-        if (messageType.equals(MissionCommand.MessageTypes.MissionStartedEvent.name())) {
-
-            MissionReport mReport = mcObj.getMissionReport();
-            dwhService.processMissionStart(mReport);
-        
-        } else if (messageType.equals(MissionCommand.MessageTypes.MissionCompletedEvent.name())) {
+        if (messageType.equals(MissionCommand.MessageTypes.MissionCompletedEvent.name())) {
             try {
                 MissionReport mReport = mcObj.getMissionReport();
-                dwhService.processMissionCompletion(mReport);
+                mService.processMissionCompletion(mReport);
             } catch (Throwable x) {
-                // Don't throw any RuntimeExceptions; appears verticle goes stale thereafter
+                logger.error("Error processing MissionCompletedEvent() incidentId = "+mcObj.getMissionReport().incidentId);
+                // Don't throw any RuntimeException
+                //  It is important to actually handle the exception
+                // If the exception bubbles up to the Reactive Messaging Kafka connector it would cause the connector to shut down and stop consuming messages.
                 x.printStackTrace();
             }
         } else {
-            logger.info("process() messageType = " + messageType);
+            if (this.log) {
+                logger.info("process() messageType = " + messageType);
+            }
         }
     }
 

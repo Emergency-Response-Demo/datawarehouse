@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import com.redhat.cajun.navy.datawarehouse.model.MissionReport;
 import com.redhat.cajun.navy.datawarehouse.model.cmd.mission.MissionCommand;
+import com.redhat.cajun.navy.datawarehouse.util.CalculationException;
 
 public class MissionReportTests {
 
@@ -30,7 +31,7 @@ public class MissionReportTests {
     }
 
     //@Test
-    public void pickUpandDropOffDistancesTest() throws IOException {
+    public void pickUpandDropOffDistancesTest() throws IOException, CalculationException {
         double expectedPickupDistance = 11925.486164264421;
         double expectedDropoffDistance = 14117.114430289823;
 

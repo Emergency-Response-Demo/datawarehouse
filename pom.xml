@@ -32,6 +32,10 @@
   <dependencies>
     <dependency>
       <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-narayana-jta</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
       <artifactId>quarkus-resteasy-mutiny</artifactId>
     </dependency>
     <dependency>
@@ -49,6 +53,10 @@
     <dependency>
         <groupId>io.quarkus</groupId>
         <artifactId>quarkus-kubernetes-config</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-infinispan-client</artifactId>
     </dependency>
     <dependency>
       <groupId>com.mapbox.mapboxsdk</groupId>
