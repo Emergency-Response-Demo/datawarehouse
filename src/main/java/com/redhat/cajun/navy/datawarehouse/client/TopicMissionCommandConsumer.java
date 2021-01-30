@@ -1,6 +1,8 @@
 package com.redhat.cajun.navy.datawarehouse.client;
 
-import com.redhat.cajun.navy.datawarehouse.util.Constants;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -8,18 +10,18 @@ import javax.inject.Inject;
 import com.redhat.cajun.navy.datawarehouse.MessageProcessingService;
 import com.redhat.cajun.navy.datawarehouse.model.MissionReport;
 import com.redhat.cajun.navy.datawarehouse.model.cmd.createMissionCommand.Body;
-import com.redhat.cajun.navy.datawarehouse.model.cmd.createMissionCommand.CreateMissionCommand;
 import com.redhat.cajun.navy.datawarehouse.model.cmd.mission.MissionCommand;
-
+import com.redhat.cajun.navy.datawarehouse.util.Constants;
+import io.smallrye.reactive.messaging.annotations.Blocking;
+import io.smallrye.reactive.messaging.ce.IncomingCloudEventMetadata;
+import io.smallrye.reactive.messaging.kafka.IncomingKafkaRecord;
+import io.vertx.core.json.Json;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.eclipse.microprofile.reactive.messaging.Acknowledgment;
-import io.smallrye.reactive.messaging.annotations.Blocking;
+import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.vertx.core.json.Json;
 
 /*   Purpose:
  *       Capture initial CreateMissionCommand message (which contains the processInstanceId) from process-service
@@ -52,35 +54,48 @@ public class TopicMissionCommandConsumer {
     @Incoming("topic-mission-command")
     @Blocking // Ensure execution occurs on a worker thread rather than on the event loop thread (which whould never be blocked)
     @Acknowledgment(Acknowledgment.Strategy.PRE_PROCESSING)  // Ack message prior to message processing
-    public void process(String topicCommand) {
-        if (StringUtils.isEmpty(topicCommand)) {
+    public CompletionStage<Void> process(IncomingKafkaRecord<String, String> message) {
+        Optional<IncomingCloudEventMetadata> metadata = message.getMetadata(IncomingCloudEventMetadata.class);
+        if (metadata.isEmpty()) {
+            logger.warn("Incoming message is not a CloudEvent");
+            return CompletableFuture.completedFuture(null);
+        }
+        IncomingCloudEventMetadata<String> cloudEventMetadata = metadata.get();
+        String dataContentType = cloudEventMetadata.getDataContentType().orElse("");
+        if (!dataContentType.equalsIgnoreCase("application/json")) {
+            logger.warn("CloudEvent data content type is not specified or not 'application/json'. Message is ignored");
+            return CompletableFuture.completedFuture(null);
+        }
+        String type = cloudEventMetadata.getType();
+        if (!(MissionCommand.MessageTypes.CreateMissionCommand.name().equals(type))) {
+            logger.debug("CloudEvent with type '" + type + "' is ignored");
+            return CompletableFuture.completedFuture(null);
+        }
+        if (StringUtils.isEmpty(message.getPayload())) {
             logger.warn("process() empty message body");
-            return;
+            return CompletableFuture.completedFuture(null);
         }
         if (this.log) {
-            logger.info("process() topic-mission-command = " + topicCommand);
+            logger.info("process() topic-mission-command = " + message.getPayload());
         }
 
-        if (StringUtils.contains(topicCommand, MissionCommand.MessageTypes.CreateMissionCommand.name())) {
-            CreateMissionCommand icObj = Json.decodeValue(topicCommand, CreateMissionCommand.class);
-            Body iObj = icObj.getBody();
-            String pInstanceId = iObj.getProcessId();
-            if (StringUtils.isNotEmpty(pInstanceId)) {
+        Body iObj = Json.decodeValue(message.getPayload(), Body.class);
+        String pInstanceId = iObj.getProcessId();
+        if (StringUtils.isNotEmpty(pInstanceId)) {
 
-                MissionReport mReport = new MissionReport();
-                mReport.setId(icObj.getId());
-                mReport.setIncidentId(iObj.getIncidentId());
-                mReport.setProcessInstanceId(pInstanceId);
-                mReport.setResponderId(iObj.getResponderId());
-                mService.processMissionStart(mReport);
+            MissionReport mReport = new MissionReport();
+            mReport.setId(cloudEventMetadata.getId());
+            mReport.setIncidentId(iObj.getIncidentId());
+            mReport.setProcessInstanceId(pInstanceId);
+            mReport.setResponderId(iObj.getResponderId());
+            mService.processMissionStart(mReport);
 
-            } else {
-                logger.error(Constants.NO_PROCESS_INSTANCE_ID_EXCEPTION
-                        + "  :  No pInstanceId found for CreateMissionCommand with incidentId = "
-                        + iObj.getIncidentId());
-            }
-
+        } else {
+            logger.error(Constants.NO_PROCESS_INSTANCE_ID_EXCEPTION
+                    + "  :  No pInstanceId found for CreateMissionCommand with incidentId = "
+                    + iObj.getIncidentId());
         }
+        return CompletableFuture.completedFuture(null);
     }
 
 }
