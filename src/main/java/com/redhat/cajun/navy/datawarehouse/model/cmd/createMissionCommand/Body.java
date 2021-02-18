@@ -1,15 +1,17 @@
 package com.redhat.cajun.navy.datawarehouse.model.cmd.createMissionCommand;
 
+import java.math.BigDecimal;
+
 public class Body {
 
     private String incidentId;
     private String responderId;
-    private String responderStartLat;
-    private String responderStartLong;
-    private String incidentLat;
-    private String incidentLong;
-    private String destinationLat;
-    private String destinationLong;
+    private BigDecimal responderStartLat;
+    private BigDecimal responderStartLong;
+    private BigDecimal incidentLat;
+    private BigDecimal incidentLong;
+    private BigDecimal destinationLat;
+    private BigDecimal destinationLong;
     private String processId;
 
     public String getIncidentId() {
@@ -28,51 +30,51 @@ public class Body {
         this.responderId = responderId;
     }
 
-    public String getResponderStartLat() {
+    public BigDecimal getResponderStartLat() {
         return responderStartLat;
     }
 
-    public void setResponderStartLat(String responderStartLat) {
+    public void setResponderStartLat(BigDecimal responderStartLat) {
         this.responderStartLat = responderStartLat;
     }
 
-    public String getResponderStartLong() {
+    public BigDecimal getResponderStartLong() {
         return responderStartLong;
     }
 
-    public void setResponderStartLong(String responderStartLong) {
+    public void setResponderStartLong(BigDecimal responderStartLong) {
         this.responderStartLong = responderStartLong;
     }
 
-    public String getIncidentLat() {
+    public BigDecimal getIncidentLat() {
         return incidentLat;
     }
 
-    public void setIncidentLat(String incidentLat) {
+    public void setIncidentLat(BigDecimal incidentLat) {
         this.incidentLat = incidentLat;
     }
 
-    public String getIncidentLong() {
+    public BigDecimal getIncidentLong() {
         return incidentLong;
     }
 
-    public void setIncidentLong(String incidentLong) {
+    public void setIncidentLong(BigDecimal incidentLong) {
         this.incidentLong = incidentLong;
     }
 
-    public String getDestinationLat() {
+    public BigDecimal getDestinationLat() {
         return destinationLat;
     }
 
-    public void setDestinationLat(String destinationLat) {
+    public void setDestinationLat(BigDecimal destinationLat) {
         this.destinationLat = destinationLat;
     }
 
-    public String getDestinationLong() {
+    public BigDecimal getDestinationLong() {
         return destinationLong;
     }
 
-    public void setDestinationLong(String destinationLong) {
+    public void setDestinationLong(BigDecimal destinationLong) {
         this.destinationLong = destinationLong;
     }
 
