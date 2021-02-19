@@ -1,16 +1,14 @@
 package com.redhat.cajun.navy.datawarehouse.dao;
 
-import com.redhat.cajun.navy.datawarehouse.model.MissionReport;
-
-import io.quarkus.runtime.ShutdownEvent;
-import io.quarkus.runtime.StartupEvent;
-import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.sqlclient.SqlConnection;
-
 import javax.annotation.Priority;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
+
+import com.redhat.cajun.navy.datawarehouse.model.MissionReport;
+import io.quarkus.runtime.ShutdownEvent;
+import io.quarkus.runtime.StartupEvent;
+import io.smallrye.mutiny.Uni;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

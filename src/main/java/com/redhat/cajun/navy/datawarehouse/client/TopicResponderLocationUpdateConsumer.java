@@ -1,6 +1,8 @@
 package com.redhat.cajun.navy.datawarehouse.client;
 
-import com.redhat.cajun.navy.datawarehouse.util.Constants;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -8,18 +10,19 @@ import javax.inject.Inject;
 import com.redhat.cajun.navy.datawarehouse.DatawarehouseService;
 import com.redhat.cajun.navy.datawarehouse.model.MissionReport;
 import com.redhat.cajun.navy.datawarehouse.model.ResponderLocationUpdate;
-
+import com.redhat.cajun.navy.datawarehouse.util.Constants;
+import io.smallrye.reactive.messaging.annotations.Blocking;
+import io.smallrye.reactive.messaging.ce.IncomingCloudEventMetadata;
+import io.smallrye.reactive.messaging.kafka.IncomingKafkaRecord;
+import io.vertx.core.json.Json;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.microprofile.reactive.messaging.Acknowledgment;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.reactive.messaging.Acknowledgment;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.infinispan.client.hotrod.MetadataValue;
 import org.infinispan.client.hotrod.exceptions.HotRodClientException;
-
-import io.smallrye.reactive.messaging.annotations.Blocking;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import io.vertx.core.json.Json;
 
 /*
  *   Purpose:
@@ -51,15 +54,31 @@ public class TopicResponderLocationUpdateConsumer {
     @Incoming("topic-responder-location-update")
     @Blocking // Ensure execution occurs on a worker thread rather than on the event loop thread (which whould never be blocked)
     @Acknowledgment(Acknowledgment.Strategy.PRE_PROCESSING)  // Ack message prior to message processing
-    public void process(String topicCommand) {
-        if (StringUtils.isEmpty(topicCommand)) {
+    public CompletionStage<Void> process(IncomingKafkaRecord<String, String> message) {
+        Optional<IncomingCloudEventMetadata> metadata = message.getMetadata(IncomingCloudEventMetadata.class);
+        if (metadata.isEmpty()) {
+            logger.warn("Incoming message is not a CloudEvent");
+            return CompletableFuture.completedFuture(null);
+        }
+        IncomingCloudEventMetadata<String> cloudEventMetadata = metadata.get();
+        String dataContentType = cloudEventMetadata.getDataContentType().orElse("");
+        if (!dataContentType.equalsIgnoreCase("application/json")) {
+            logger.warn("CloudEvent data content type is not specified or not 'application/json'. Message is ignored");
+            return CompletableFuture.completedFuture(null);
+        }
+        if (StringUtils.isEmpty(message.getPayload())) {
             logger.warn("process() empty message body");
-            return;
+            return CompletableFuture.completedFuture(null);
+        }
+        String type = cloudEventMetadata.getType();
+        if (!("ResponderLocationUpdatedEvent".equals(type))) {
+            logger.debug("CloudEvent with type '" + type + "' is ignored");
+            return CompletableFuture.completedFuture(null);
         }
         if (this.log) {
-            logger.info("process() topic-responder-location-update = " + topicCommand);
+            logger.info("process() topic-responder-location-update = " + message.getPayload());
         }
-        ResponderLocationUpdate rlObj = Json.decodeValue(topicCommand, ResponderLocationUpdate.class);
+        ResponderLocationUpdate rlObj = Json.decodeValue(message.getPayload(), ResponderLocationUpdate.class);
         if (rlObj.getStatus().equals(ResponderLocationUpdate.Statuses.PICKEDUP.name())) {
             String incidentId = rlObj.getIncidentId();
 
@@ -82,6 +101,7 @@ public class TopicResponderLocationUpdateConsumer {
                 x.printStackTrace();
             }
         }
+        return CompletableFuture.completedFuture(null);
     }
     
     private void updateCache(String id, ResponderLocationUpdate rlObj) throws Exception {
